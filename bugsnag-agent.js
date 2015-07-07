@@ -18,6 +18,7 @@ var server = http.createServer(function (req, res) {
         count++;
         console.log('recv', {size: size, pending: count});
 
+        var payload = body;
         var req = https.request({
             host: 'notify.bugsnag.com',
             headers: {'content-type': 'application/json'},
@@ -28,15 +29,29 @@ var server = http.createServer(function (req, res) {
             res.on('data', function (chunk) { body = body + chunk; });
             res.on('end', function () {
                 count--;
-                console.log('send', {size: size, pending: count});
 
-                if (res.statusCode < 200 || res.statusCode >= 300)
-                    console.error(res.statusCode + ' ' + res.statusMessage + ' ' + JSON.stringify(body));
+                var code = res.statusCode;
+                if (code < 200 || code >= 300) {
+                    console.error('error', {
+                        size: size,
+                        pending: count,
+                        code: code,
+                        message: body,
+                        payload: payload,
+                    });
+                } else {
+                    console.log('send', {size: size, pending: count});
+                }
             });
         });
         req.on('error', function (e) {
             count--;
-            console.error('error', {size: size, pending: count, error: e});
+            console.error('error', {
+                size: size,
+                pending: count,
+                error: e,
+                payload: payload
+            });
         });
         req.end(body);
     });
