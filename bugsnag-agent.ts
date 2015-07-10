@@ -3,61 +3,86 @@
 import http = require("http")
 import https = require("https")
 
-var count = 0;
+class BugsnagAgent {
+    private count = 0;
+    private agent = new https.Agent();
+    private console = console;
 
-var agent = new https.Agent();
-agent.maxSockets = 100;
+    constructor() {
+        this.agent.maxSockets = 100;
+    }
 
-var server = http.createServer(function (req:http.IncomingMessage, res:http.ServerResponse) {
-    var body = '';
-    req.on('data', function (chunk:string) { body = body + chunk; });
-    req.on('end', function () {
-        var size = body.length;
-        res.end('okay. ' + size + ' bytes received.');
+    public start() {
+        var self = this;
+        var server = http.createServer(function (
+            req:http.IncomingMessage,
+            res:http.ServerResponse
+        ) {
+            var body = '';
+            req.on('data', function (chunk:string) { body = body + chunk; });
+            req.on('end', function () {
+                res.end('okay. ' + body.length + ' bytes received.');
 
-        count++;
-        console.log('recv', {size: size, pending: count});
+                self.count++;
+                self.log('recv', {size: body.length, pending: self.count});
+                self.sendRequest(body);
+            });
+        });
 
-        var payload = body;
+        server.listen(3829, '127.0.0.1', function () {
+            self.log('HTTP server started');
+        });
+    }
+
+    private sendRequest(json:string) {
+        var self = this;
         var req = https.request({
             host: 'notify.bugsnag.com',
             headers: {'content-type': 'application/json'},
             method: 'POST',
-            agent: agent
+            agent: this.agent
         }, function (res:http.IncomingMessage) {
             var body = '';
             res.on('data', function (chunk:string) { body = body + chunk; });
             res.on('end', function () {
-                count--;
-
-                var code = res.statusCode;
-                if (code < 200 || code >= 300) {
-                    console.error('error', {
-                        size: size,
-                        pending: count,
-                        code: code,
-                        message: body,
-                        payload: payload,
-                    });
-                } else {
-                    console.log('send', {size: size, pending: count});
-                }
+                self.count--;
+                self.handleResponse(json, body, res.statusCode);
             });
         });
-        req.on('error', function (e) {
-            count--;
-            console.error('error', {
-                size: size,
-                pending: count,
+        req.on('error', function (e:Object) {
+            self.count--;
+            self.log('error', {
+                size: json.length,
+                pending: self.count,
                 error: e,
-                payload: payload
+                payload: json
             });
         });
-        req.end(body);
-    });
-});
+        req.end(json);
+    }
 
-server.listen(3829, '127.0.0.1', function () {
-    console.log('HTTP server started');
-});
+    private handleResponse(json:string, response:string, code:number) {
+        if (code < 200 || code >= 300) {
+            this.log('error', {
+                size: json.length,
+                pending: this.count,
+                code: code,
+                message: response,
+                payload: json,
+            });
+        } else {
+            this.log('send', {size: json.length, pending: this.count});
+        }
+    }
+
+    private log(name:string, body?:Object) {
+        var time = '[' + new Date().toLocaleString() + ']';
+        if (body)
+            this.console.log(time, name, body);
+        else
+            this.console.log(time, name);
+    }
+}
+
+(new BugsnagAgent()).start();
 
