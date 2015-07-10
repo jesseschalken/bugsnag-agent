@@ -25,7 +25,7 @@ class BugsnagAgent {
 
                 self.count++;
                 self.log('recv', {size: body.length, pending: self.count});
-                self.sendRequest(body);
+                self.sendRequest(body, 5);
             });
         });
 
@@ -34,7 +34,7 @@ class BugsnagAgent {
         });
     }
 
-    private sendRequest(json:string) {
+    private sendRequest(json:string, retry:number) {
         var self = this;
         var req = https.request({
             host: 'notify.bugsnag.com',
@@ -45,8 +45,7 @@ class BugsnagAgent {
             var body = '';
             res.on('data', function (chunk:string) { body = body + chunk; });
             res.on('end', function () {
-                self.count--;
-                self.handleResponse(json, body, res.statusCode);
+                self.handleResponse(json, body, res.statusCode, retry);
             });
         });
         req.on('error', function (e:Object) {
@@ -61,8 +60,15 @@ class BugsnagAgent {
         req.end(json);
     }
 
-    private handleResponse(json:string, response:string, code:number) {
-        if (code < 200 || code >= 300) {
+    private handleResponse(json:string, response:string, code:number, retry:number) {
+        if (code == 502 && retry > 0) {
+            var self = this;
+            this.log('error "502 Bad Gateway", retrying in 5 seconds, ' + retry + ' retries left');
+            setTimeout(function () {
+                self.sendRequest(json, retry - 1);
+            }, 5000);
+        } else if (code < 200 || code >= 300) {
+            this.count--;
             this.log('error', {
                 size: json.length,
                 pending: this.count,
@@ -71,6 +77,7 @@ class BugsnagAgent {
                 payload: json,
             });
         } else {
+            this.count--;
             this.log('send', {size: json.length, pending: this.count});
         }
     }

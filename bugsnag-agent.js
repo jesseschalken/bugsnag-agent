@@ -17,14 +17,14 @@ var BugsnagAgent = (function () {
                 res.end('okay. ' + body.length + ' bytes received.');
                 self.count++;
                 self.log('recv', { size: body.length, pending: self.count });
-                self.sendRequest(body);
+                self.sendRequest(body, 5);
             });
         });
         server.listen(3829, '127.0.0.1', function () {
             self.log('HTTP server started');
         });
     };
-    BugsnagAgent.prototype.sendRequest = function (json) {
+    BugsnagAgent.prototype.sendRequest = function (json, retry) {
         var self = this;
         var req = https.request({
             host: 'notify.bugsnag.com',
@@ -35,8 +35,7 @@ var BugsnagAgent = (function () {
             var body = '';
             res.on('data', function (chunk) { body = body + chunk; });
             res.on('end', function () {
-                self.count--;
-                self.handleResponse(json, body, res.statusCode);
+                self.handleResponse(json, body, res.statusCode, retry);
             });
         });
         req.on('error', function (e) {
@@ -50,8 +49,16 @@ var BugsnagAgent = (function () {
         });
         req.end(json);
     };
-    BugsnagAgent.prototype.handleResponse = function (json, response, code) {
-        if (code < 200 || code >= 300) {
+    BugsnagAgent.prototype.handleResponse = function (json, response, code, retry) {
+        if (code == 502 && retry > 0) {
+            var self = this;
+            this.log('error "502 Bad Gateway", retrying in 5 seconds, ' + retry + ' retries left');
+            setTimeout(function () {
+                self.sendRequest(json, retry - 1);
+            }, 5000);
+        }
+        else if (code < 200 || code >= 300) {
+            this.count--;
             this.log('error', {
                 size: json.length,
                 pending: this.count,
@@ -61,6 +68,7 @@ var BugsnagAgent = (function () {
             });
         }
         else {
+            this.count--;
             this.log('send', { size: json.length, pending: this.count });
         }
     };
