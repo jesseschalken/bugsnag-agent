@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 ///<reference path='typings/node/node.d.ts' />
 var http = require("http");
 var https = require("https");
