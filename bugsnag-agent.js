@@ -10,23 +10,25 @@ var BugsnagAgent = (function () {
         this.agent.maxSockets = 100;
     }
     BugsnagAgent.prototype.start = function () {
-        var self = this;
+        var _this = this;
         var server = http.createServer(function (req, res) {
             var body = '';
-            req.on('data', function (chunk) { body = body + chunk; });
+            req.on('data', function (chunk) {
+                body = body + chunk;
+            });
             req.on('end', function () {
                 res.end('okay. ' + body.length + ' bytes received.');
-                self.count++;
-                self.log('recv', { size: body.length, pending: self.count });
-                self.sendRequest(body, 5);
+                _this.count++;
+                _this.log('recv', { size: body.length, pending: _this.count });
+                _this.sendRequest(body, 5);
             });
         });
         server.listen(3829, '127.0.0.1', function () {
-            self.log('HTTP server started');
+            _this.log('HTTP server started');
         });
     };
     BugsnagAgent.prototype.sendRequest = function (json, retry) {
-        var self = this;
+        var _this = this;
         var req = https.request({
             host: 'notify.bugsnag.com',
             headers: { 'content-type': 'application/json' },
@@ -34,16 +36,18 @@ var BugsnagAgent = (function () {
             agent: this.agent
         }, function (res) {
             var body = '';
-            res.on('data', function (chunk) { body = body + chunk; });
+            res.on('data', function (chunk) {
+                body = body + chunk;
+            });
             res.on('end', function () {
-                self.handleResponse(json, body, res.statusCode, retry);
+                _this.handleResponse(json, body, res.statusCode, retry);
             });
         });
         req.on('error', function (e) {
-            self.count--;
-            self.log('error', {
+            _this.count--;
+            _this.log('error', {
                 size: json.length,
-                pending: self.count,
+                pending: _this.count,
                 error: e,
                 payload: json
             });
@@ -51,11 +55,11 @@ var BugsnagAgent = (function () {
         req.end(json);
     };
     BugsnagAgent.prototype.handleResponse = function (json, response, code, retry) {
+        var _this = this;
         if (code == 502 && retry > 0) {
-            var self = this;
             this.log('error "502 Bad Gateway", retrying in 5 seconds, ' + retry + ' retries left');
             setTimeout(function () {
-                self.sendRequest(json, retry - 1);
+                _this.sendRequest(json, retry - 1);
             }, 5000);
         }
         else if (code < 200 || code >= 300) {
