@@ -8,7 +8,7 @@ class BugsnagAgent {
     private agent = new https.Agent();
     private console = console;
 
-    constructor() {
+    public constructor() {
         this.agent.maxSockets = 100;
     }
 
