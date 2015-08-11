@@ -1,7 +1,7 @@
 ///<reference path='typings/node/node.d.ts' />
 
-import http = require("http")
-import https = require("https")
+import * as http from "http"
+import * as https from "https"
 
 class BugsnagAgent {
     private count = 0;

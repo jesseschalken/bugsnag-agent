@@ -13,9 +13,7 @@ var BugsnagAgent = (function () {
         var _this = this;
         var server = http.createServer(function (req, res) {
             var body = '';
-            req.on('data', function (chunk) {
-                body = body + chunk;
-            });
+            req.on('data', function (chunk) { body = body + chunk; });
             req.on('end', function () {
                 res.end('okay. ' + body.length + ' bytes received.');
                 _this.count++;
@@ -36,9 +34,7 @@ var BugsnagAgent = (function () {
             agent: this.agent
         }, function (res) {
             var body = '';
-            res.on('data', function (chunk) {
-                body = body + chunk;
-            });
+            res.on('data', function (chunk) { body = body + chunk; });
             res.on('end', function () {
                 _this.handleResponse(json, body, res.statusCode, retry);
             });
